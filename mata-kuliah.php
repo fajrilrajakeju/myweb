@@ -1,96 +1,148 @@
 <?php
 require_once 'koneksi.php';
 
+// 1. Konfigurasi Pagination & Searching
+$batas   = 5; // Jumlah baris data per halaman
+$halaman = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$halaman = ($halaman > 0) ? $halaman : 1;
+$offset  = ($halaman - 1) * $batas;
+
+$keyword = isset($_GET['search']) ? trim($_GET['search']) : '';
+
 try {
-    $stmt = $koneksi->prepare("SELECT * FROM mata_kuliah");
-    $matkul = $stmt->execute();
+    // 2. Hitung Total Data (untuk menentukan total halaman)
+    $sql_count  = "SELECT COUNT(*) FROM mata_kuliah WHERE nama LIKE :kw OR kode LIKE :kw";
+    $stmt_count = $koneksi->prepare($sql_count);
+    $stmt_count->bindValue(':kw', "%$keyword%", PDO::PARAM_STR);
+    $stmt_count->execute();
+    $total_data = $stmt_count->fetchColumn();
+
+    $total_halaman = ceil($total_data / $batas);
+
+    // 3. Query Data Utama dengan LIMIT dan OFFSET
+    $sql  = "SELECT * FROM mata_kuliah WHERE nama LIKE :kw OR kode LIKE :kw ORDER BY kode ASC LIMIT :limit OFFSET :offset";
+    $stmt = $koneksi->prepare($sql);
+    $stmt->bindValue(':kw', "%$keyword%", PDO::PARAM_STR);
+    $stmt->bindValue(':limit', $batas, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
     $data = $stmt->fetchAll();
+
 } catch (PDOException $e) {
     die("Error mengambil data: " . $e->getMessage());
 }
+
+// 4. Panggil Header dan Sidebar AdminLTE
+require_once 'layouts/header.php';
+require_once 'layouts/sidebar.php';
 ?>
 
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MyWeb - Fajril Yusin Supriadi</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-<style>
-    body {
-        font-family: 'Inter', sans-serif !important;
-        letter-spacing: -0.5px !important;   
-        background-color: #f4f6f9 !important;
-        color: #1e293b !important;
-    }
-</style>
-</head>
-<body>
-    <main>
-        <nav class="navbar navbar-expand-lg bg-primary navbar-dark">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="#">MyWeb</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-                </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
-                <li class="nav-item">
-                <a class="nav-link" aria-current="page" href="index.php">Beranda</a>
-                </li>
-                <li class="nav-item">
-                <a class="nav-link active" href="mata-kuliah.php">Mata Kuliah</a>
-                </li>
-                </ul>
-                </div>
-            </div>
-        </nav>
-    </main>
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-6">
-                <h1>Daftar Mata Kuliah</h1>
-            </div>
-
-            <div class="col-6 text-end">
-                <a href="tambah-mata-kuliah.php" class="btn btn-primary">Tambah Mata Kuliah</a>
-            </div>
+<!-- Konten Utama -->
+<main class="app-main">
+  <div class="app-content-header">
+    <div class="container-fluid">
+      <div class="row align-items-center">
+        <div class="col-sm-6">
+          <h1 class="mb-0 fs-3">Daftar Mata Kuliah</h1>
         </div>
-        <table class="table table-striped mt-3">
-          <thead>
-            <tr>
-              <th scope="col">Kode Mata Kuliah</th>
-              <th scope="col">Nama Mata Kuliah</th>
-              <th scope="col">Semester</th>
-              <th scope="col">Bobot (SKS)</th>
-              <th scope="col">Dosen ID</th>
-              <th scope="col">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (!empty($data)): ?>
-                <?php foreach ($data as $row): ?>
-                    <tr>
-                        <th scope="row"><?= htmlspecialchars($row['kode']) ?></th>
-                        <td><?= htmlspecialchars($row['nama']) ?></td>
-                        <td><?= htmlspecialchars($row['semester'] ?? '-') ?></td>
-                        <td><?= $row['sks'] !== null ? htmlspecialchars($row['sks']) : '<em class="text-muted">NULL</em>' ?></td>
-                        <td><?= $row['dosen_id'] !== null ? htmlspecialchars($row['dosen_id']) : '<em class="text-muted">NULL</em>' ?></td>
-                        <td>
-                            <a class="btn btn-warning" href="edit-mata-kuliah.php?kode=<?= urlencode($row['kode']) ?>">Edit</a>
-                            <a style="margin-left: 4px;" class="btn btn-danger" href="hapus-mata-kuliah.php?kode=<?= urlencode($row['kode']) ?>" onclick="return confirm('Apakah Anda yakin ingin menghapus mata kuliah ini?')">Delete</a>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <tr>
-                    <td colspan="5" class="text-center">Belum ada data mata kuliah.</td>
-                </tr>
-            <?php endif; ?>
-          </tbody>
-        </table>
+        <div class="col-sm-6 text-end">
+          <a href="tambah-mata-kuliah.php" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Tambah Mata Kuliah
+          </a>
+        </div>
+      </div>
     </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-</body>
-</html>
+  </div>
+
+  <div class="app-content">
+    <div class="container-fluid">
+      <div class="card mb-4">
+        
+        <!-- Header Card: Form Searching -->
+        <div class="card-header">
+          <form method="GET" action="mata-kuliah.php" class="row g-2 align-items-center">
+            <div class="col-auto">
+              <input type="text" name="search" class="form-control" placeholder="Cari Kode / Nama..." value="<?= htmlspecialchars($keyword); ?>">
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i> Cari
+              </button>
+              <?php if ($keyword !== ''): ?>
+                <a href="mata-kuliah.php" class="btn btn-secondary">Reset</a>
+              <?php endif; ?>
+            </div>
+          </form>
+        </div>
+
+        <!-- Body Card: Tabel Data -->
+        <div class="card-body p-0">
+          <table class="table table-striped table-hover mb-0">
+            <thead>
+              <tr>
+                <th scope="col">Kode</th>
+                <th scope="col">Nama Mata Kuliah</th>
+                <th scope="col">Semester</th>
+                <th scope="col">Bobot (SKS)</th>
+                <th scope="col">Dosen ID</th>
+                <th scope="col">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (!empty($data)): ?>
+                <?php foreach ($data as $row): ?>
+                  <tr>
+                    <th scope="row"><?= htmlspecialchars($row['kode']) ?></th>
+                    <td><?= htmlspecialchars($row['nama']) ?></td>
+                    <td><?= htmlspecialchars($row['semester'] ?? '-') ?></td>
+                    <td><?= $row['sks'] !== null ? htmlspecialchars($row['sks']) : '<em class="text-muted">NULL</em>' ?></td>
+                    <td><?= $row['dosen_id'] !== null ? htmlspecialchars($row['dosen_id']) : '<em class="text-muted">NULL</em>' ?></td>
+                    <td>
+                      <a class="btn btn-sm btn-warning" href="edit-mata-kuliah.php?kode=<?= urlencode($row['kode']) ?>">Edit</a>
+                      <a class="btn btn-sm btn-danger ms-1" href="hapus-mata-kuliah.php?kode=<?= urlencode($row['kode']) ?>" onclick="return confirm('Apakah Anda yakin ingin menghapus mata kuliah ini?')">Delete</a>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <tr>
+                  <td colspan="6" class="text-center py-3">Belum ada data mata kuliah.</td>
+                </tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer Card: Navigasi Pagination -->
+        <?php if ($total_halaman > 1): ?>
+        <div class="card-footer clearfix">
+          <ul class="pagination pagination-sm m-0 float-end">
+            
+            <!-- Tombol Previous -->
+            <li class="page-item <?= ($halaman <= 1) ? 'disabled' : ''; ?>">
+              <a class="page-link" href="?page=<?= $halaman - 1; ?>&search=<?= urlencode($keyword); ?>">« Previous</a>
+            </li>
+
+            <!-- Angka Halaman -->
+            <?php for ($i = 1; $i <= $total_halaman; $i++): ?>
+              <li class="page-item <?= ($i == $halaman) ? 'active' : ''; ?>">
+                <a class="page-link" href="?page=<?= $i; ?>&search=<?= urlencode($keyword); ?>"><?= $i; ?></a>
+              </li>
+            <?php endfor; ?>
+
+            <!-- Tombol Next -->
+            <li class="page-item <?= ($halaman >= $total_halaman) ? 'disabled' : ''; ?>">
+              <a class="page-link" href="?page=<?= $halaman + 1; ?>&search=<?= urlencode($keyword); ?>">Next »</a>
+            </li>
+
+          </ul>
+        </div>
+        <?php endif; ?>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<?php
+require_once 'layouts/footer.php';
+?>
