@@ -4,12 +4,21 @@ require_once 'koneksi.php';
 $pesan = '';
 $tipe_pesan = '';
 
-// Memproses data saat form dikirimkan (Method POST)
+// 1. Ambil daftar dosen dari database untuk opsi Dropdown
+try {
+    $stmt_dosen = $koneksi->query("SELECT id, nama FROM dosen ORDER BY nama ASC");
+    $list_dosen = $stmt_dosen->fetchAll();
+} catch (PDOException $e) {
+    die("Error mengambil data dosen: " . $e->getMessage());
+}
+
+// 2. Memproses data saat form dikirimkan (Method POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $kode_matkul = trim($_POST['kode_matkul']);
     $nama_matkul = trim($_POST['nama_matkul']);
     $semester    = !empty($_POST['semester']) ? (int)$_POST['semester'] : null;
     $sks         = !empty($_POST['sks']) ? (int)$_POST['sks'] : null;
+    $dosen_id    = !empty($_POST['dosen_id']) ? (int)$_POST['dosen_id'] : null;
 
     // Validasi input sederhana
     if (empty($kode_matkul) || empty($nama_matkul)) {
@@ -17,9 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tipe_pesan = "danger";
     } else {
         try {
-            // Prepared Statement untuk Insert Data
-            $sql = "INSERT INTO mata_kuliah (kode, nama, semester, sks) 
-                    VALUES (:kode, :nama, :semester, :sks)";
+            // Prepared Statement untuk Insert Data (Termasuk dosen_id)
+            $sql = "INSERT INTO mata_kuliah (kode, nama, semester, sks, dosen_id) 
+                    VALUES (:kode, :nama, :semester, :sks, :dosen_id)";
             
             $stmt = $koneksi->prepare($sql);
             
@@ -28,7 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':kode'     => $kode_matkul,
                 ':nama'     => $nama_matkul,
                 ':semester' => $semester,
-                ':sks'      => $sks
+                ':sks'      => $sks,
+                ':dosen_id' => $dosen_id
             ]);
 
             if ($simpan) {
@@ -37,40 +47,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
         } catch (PDOException $e) {
-            // Menangkap error jika kode mata kuliah duplikat atau ada masalah database
             $pesan = "Gagal menyimpan data: " . $e->getMessage();
             $tipe_pesan = "danger";
         }
     }
 }
+
+// 3. Panggil Header dan Sidebar AdminLTE
+require_once 'layouts/header.php';
+require_once 'layouts/sidebar.php';
 ?>
 
-<!doctype html>
-<html lang="id">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tambah Mata Kuliah - MyWeb</title>
-<style>
-    body {
-        font-family: 'Inter', sans-serif !important;
-        letter-spacing: -0.5px !important;   
-        background-color: #f4f6f9 !important;
-        color: #1e293b !important;
-    }
-</style>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
-</head>
-<body>
-    <main>
-    </main>
-
-    <div class="container mt-4">
+<!-- Konten Utama -->
+<main class="app-main">
+    <div class="container mt-4 mb-4">
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0">Tambah Mata Kuliah</h4>
+                        <h4 class="mb-0 fs-5">Tambah Mata Kuliah</h4>
                     </div>
                     <div class="card-body">
                         
@@ -107,9 +102,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <input type="number" class="form-control" id="sks" name="sks" min="1" max="6" placeholder="Contoh: 3">
                             </div>
 
+                            <!-- Field 5: Dropdown Dosen Pengampu -->
                             <div class="mb-3">
-                                <label for="dosen" class="form-label">Dosen</label>
-                                <input type="text" class="form-control" id="dosen" name="dosen" placeholder="Contoh: Dr. John Doe">
+                                <label for="dosen_id" class="form-label">Dosen Pengampu</label>
+                                <select name="dosen_id" id="dosen_id" class="form-select">
+                                    <option value="">-- Pilih Dosen Pengampu --</option>
+                                    <?php foreach ($list_dosen as $dosen): ?>
+                                        <option value="<?= $dosen['id'] ?>">
+                                            <?= htmlspecialchars($dosen['nama']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
 
                             <div class="d-flex justify-content-between mt-4">
@@ -123,7 +126,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
+</main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-</body>
-</html>
+<?php
+require_once 'layouts/footer.php';
+?>

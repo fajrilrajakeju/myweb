@@ -10,8 +10,10 @@ $offset  = ($halaman - 1) * $batas;
 $keyword = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 try {
-    // 2. Hitung Total Data (untuk menentukan total halaman)
-    $sql_count  = "SELECT COUNT(*) FROM mata_kuliah WHERE nama LIKE :kw OR kode LIKE :kw";
+    // 2. Hitung Total Data (termasuk pencarian nama dosen)
+    $sql_count  = "SELECT COUNT(*) FROM mata_kuliah m 
+                  LEFT JOIN dosen d ON m.dosen_id = d.id 
+                  WHERE m.nama LIKE :kw OR m.kode LIKE :kw OR d.nama LIKE :kw";
     $stmt_count = $koneksi->prepare($sql_count);
     $stmt_count->bindValue(':kw', "%$keyword%", PDO::PARAM_STR);
     $stmt_count->execute();
@@ -19,8 +21,12 @@ try {
 
     $total_halaman = ceil($total_data / $batas);
 
-    // 3. Query Data Utama dengan LIMIT dan OFFSET
-    $sql  = "SELECT * FROM mata_kuliah WHERE nama LIKE :kw OR kode LIKE :kw ORDER BY kode ASC LIMIT :limit OFFSET :offset";
+    // 3. Query Utama dengan LEFT JOIN ke tabel dosen
+    $sql  = "SELECT m.*, d.nama AS nama_dosen 
+            FROM mata_kuliah m 
+            LEFT JOIN dosen d ON m.dosen_id = d.id 
+            WHERE m.nama LIKE :kw OR m.kode LIKE :kw OR d.nama LIKE :kw 
+            ORDER BY m.kode ASC LIMIT :limit OFFSET :offset";
     $stmt = $koneksi->prepare($sql);
     $stmt->bindValue(':kw', "%$keyword%", PDO::PARAM_STR);
     $stmt->bindValue(':limit', $batas, PDO::PARAM_INT);
@@ -62,7 +68,7 @@ require_once 'layouts/sidebar.php';
         <div class="card-header">
           <form method="GET" action="mata-kuliah.php" class="row g-2 align-items-center">
             <div class="col-auto">
-              <input type="text" name="search" class="form-control" placeholder="Cari Kode / Nama..." value="<?= htmlspecialchars($keyword); ?>">
+              <input type="text" name="search" class="form-control" placeholder="Cari Kode / Nama / Dosen..." value="<?= htmlspecialchars($keyword); ?>">
             </div>
             <div class="col-auto">
               <button type="submit" class="btn btn-primary">
@@ -84,7 +90,7 @@ require_once 'layouts/sidebar.php';
                 <th scope="col">Nama Mata Kuliah</th>
                 <th scope="col">Semester</th>
                 <th scope="col">Bobot (SKS)</th>
-                <th scope="col">Dosen ID</th>
+                <th scope="col">Dosen</th>
                 <th scope="col">Aksi</th>
               </tr>
             </thead>
@@ -95,8 +101,11 @@ require_once 'layouts/sidebar.php';
                     <th scope="row"><?= htmlspecialchars($row['kode']) ?></th>
                     <td><?= htmlspecialchars($row['nama']) ?></td>
                     <td><?= htmlspecialchars($row['semester'] ?? '-') ?></td>
-                    <td><?= $row['sks'] !== null ? htmlspecialchars($row['sks']) : '<em class="text-muted">NULL</em>' ?></td>
-                    <td><?= $row['dosen_id'] !== null ? htmlspecialchars($row['dosen_id']) : '<em class="text-muted">NULL</em>' ?></td>
+                    <td><?= $row['sks'] !== null ? htmlspecialchars($row['sks']) . ' SKS' : '-' ?></td>
+                    <td>
+                      <!-- Menampilkan nama dosen atau keterangan jika belum di-set -->
+                      <?= !empty($row['nama_dosen']) ? '<strong>' . htmlspecialchars($row['nama_dosen']) . '</strong>' : '<em class="text-muted">Belum diset</em>' ?>
+                    </td>
                     <td>
                       <a class="btn btn-sm btn-warning" href="edit-mata-kuliah.php?kode=<?= urlencode($row['kode']) ?>">Edit</a>
                       <a class="btn btn-sm btn-danger ms-1" href="hapus-mata-kuliah.php?kode=<?= urlencode($row['kode']) ?>" onclick="return confirm('Apakah Anda yakin ingin menghapus mata kuliah ini?')">Delete</a>

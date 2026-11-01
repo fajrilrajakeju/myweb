@@ -12,14 +12,22 @@ if (!$kode) {
     exit;
 }
 
-// 2. Proses saat form di-submit (Method POST)
+// 2. Ambil daftar dosen dari database untuk mengisi opsi Dropdown
+try {
+    $stmt_dosen = $koneksi->query("SELECT id, nama FROM dosen ORDER BY nama ASC");
+    $list_dosen = $stmt_dosen->fetchAll();
+} catch (PDOException $e) {
+    die("Error mengambil data dosen: " . $e->getMessage());
+}
+
+// 3. Proses saat form di-submit (Method POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $kode_lama   = $_POST['kode_lama'];
     $kode_matkul = trim($_POST['kode_matkul']);
     $nama_matkul = trim($_POST['nama_matkul']);
     $semester    = !empty($_POST['semester']) ? (int)$_POST['semester'] : null;
     $sks         = !empty($_POST['sks']) ? (int)$_POST['sks'] : null;
-    $dosen_id    = !empty($_POST['dosen_id']) ? $_POST['dosen_id'] : null;
+    $dosen_id    = !empty($_POST['dosen_id']) ? (int)$_POST['dosen_id'] : null;
 
     if (empty($kode_matkul) || empty($nama_matkul)) {
         $pesan = "Kode dan Nama Mata Kuliah wajib diisi!";
@@ -56,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// 3. Ambil data mata kuliah dari database untuk ditampilkan di form
+// 4. Ambil data mata kuliah dari database untuk ditampilkan di form
 try {
     $stmt = $koneksi->prepare("SELECT * FROM mata_kuliah WHERE kode = :kode");
     $stmt->execute([':kode' => $kode]);
@@ -68,52 +76,20 @@ try {
 } catch (PDOException $e) {
     die("Error mengambil data: " . $e->getMessage());
 }
+
+// 5. Panggil Header dan Sidebar AdminLTE
+require_once 'layouts/header.php';
+require_once 'layouts/sidebar.php';
 ?>
 
-<!doctype html>
-<html lang="id">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Edit Mata Kuliah - MyWeb</title>
-<style>
-    body {
-        font-family: 'Inter', sans-serif !important;
-        letter-spacing: -0.5px !important;   
-        background-color: #f4f6f9 !important;
-        color: #1e293b !important;
-    }
-</style>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
-</head>
-<body>
-    <main>
-        <nav class="navbar navbar-expand-lg bg-primary navbar-dark">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="#">MyWeb</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-                </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
-                <li class="nav-item">
-                <a class="nav-link" href="index.php">Beranda</a>
-                </li>
-                <li class="nav-item">
-                <a class="nav-link active" href="mata-kuliah.php">Mata Kuliah</a>
-                </li>
-                </ul>
-                </div>
-            </div>
-        </nav>
-    </main>
-
-    <div class="container mt-4">
+<!-- Konten Utama -->
+<main class="app-main">
+    <div class="container mt-4 mb-4">
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <div class="card shadow-sm">
                     <div class="card-header bg-warning text-dark">
-                        <h4 class="mb-0">Edit Mata Kuliah</h4>
+                        <h4 class="mb-0 fs-5">Edit Mata Kuliah</h4>
                     </div>
                     <div class="card-body">
                         
@@ -152,10 +128,17 @@ try {
                                 <input type="number" class="form-control" id="sks" name="sks" min="1" max="6" value="<?= htmlspecialchars($matkul['sks'] ?? '') ?>">
                             </div>
 
-                            <!-- Field 5: Dosen -->
+                            <!-- Field 5: Dropdown Dosen Pengampu (Dinamis dari Tabel Dosen) -->
                             <div class="mb-3">
-                                <label for="dosen" class="form-label">Dosen</label>
-                                <input type="text" class="form-control" id="dosen" name="dosen" value="<?= htmlspecialchars($matkul['dosen'] ?? '') ?>">
+                                <label for="dosen_id" class="form-label">Dosen Pengampu</label>
+                                <select name="dosen_id" id="dosen_id" class="form-select">
+                                    <option value="">-- Pilih Dosen Pengampu --</option>
+                                    <?php foreach ($list_dosen as $dosen): ?>
+                                        <option value="<?= $dosen['id'] ?>" <?= ($matkul['dosen_id'] == $dosen['id']) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($dosen['nama']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
 
                             <div class="d-flex justify-content-between mt-4">
@@ -169,7 +152,8 @@ try {
             </div>
         </div>
     </div>
+</main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-</body>
-</html>
+<?php
+require_once 'layouts/footer.php';
+?>

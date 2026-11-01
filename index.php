@@ -48,7 +48,6 @@
             <h1>MyWeb - Fajril Yusin Supriadi   </h1>
             <p class="lead">Saat ini sedang maintenance. Silakan langsung menuju Mata Kuliah</p>
             <a href="mata-kuliah.php" class="btn btn-primary">Lihat Mata Kuliah</a>
-        </div>
     </div>
 </div>
     </main>
